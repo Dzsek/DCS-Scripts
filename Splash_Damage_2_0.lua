@@ -34,6 +34,10 @@ spencershepard (GRIMM):
  spencershepard (GRIMM):
  added new/missing weapons to explTable
  added new option rocket_multiplier
+
+ 31 July 2023
+ Dzsek (Dzsekeb):
+ - generate fake kill event on splash damage kill, attributed to original Unit
 --]]
 
 ----[[ ##### SCRIPT CONFIGURATION ##### ]]----
@@ -245,6 +249,7 @@ end
 
 WpnHandler = {}
 tracked_weapons = {}
+tracked_secondary_kills = {}
 
 function track_wpns()
 --  env.info("Weapon Track Start")
@@ -276,7 +281,7 @@ function track_wpns()
       if splash_damage_options.rocket_multiplier > 0 and wpnData.cat == Weapon.Category.ROCKET then
         explosive = explosive * splash_damage_options.rocket_multiplier
       end
-	  blastWave(impactPoint, splash_damage_options.blast_search_radius, wpnData.ordnance, explosive)
+	  blastWave(impactPoint, splash_damage_options.blast_search_radius, wpnData.desc, explosive, wpnData.init)
       tracked_weapons[wpn_id_] = nil -- remove from tracked weapons first.         
     end
   end
@@ -305,13 +310,33 @@ function onWpnEvent(event)
       if (weapon_desc.category ~= 0) and event.initiator then
         if (weapon_desc.category == 1) then
           if (weapon_desc.MissileCategory ~= 1 and weapon_desc.MissileCategory ~= 2) then
-            tracked_weapons[event.weapon.id_] = { wpn = ordnance, init = event.initiator:getName(), pos = ordnance:getPoint(), dir = ordnance:getPosition().x, name = ordnance:getTypeName(), speed = ordnance:getVelocity(), cat = ordnance:getCategory() }
+            tracked_weapons[event.weapon.id_] = { wpn = ordnance, desc = weapon_desc, init = event.initiator:getName(), pos = ordnance:getPoint(), dir = ordnance:getPosition().x, name = ordnance:getTypeName(), speed = ordnance:getVelocity(), cat = ordnance:getCategory() }
           end
         else
-          tracked_weapons[event.weapon.id_] = { wpn = ordnance, init = event.initiator:getName(), pos = ordnance:getPoint(), dir = ordnance:getPosition().x, name = ordnance:getTypeName(), speed = ordnance:getVelocity(), cat = ordnance:getCategory() }
+          tracked_weapons[event.weapon.id_] = { wpn = ordnance, desc = weapon_desc, init = event.initiator:getName(), pos = ordnance:getPoint(), dir = ordnance:getPosition().x, name = ordnance:getTypeName(), speed = ordnance:getVelocity(), cat = ordnance:getCategory() }
         end
       end
     end
+  elseif event.id == world.event.S_EVENT_KILL then
+    if event.target then
+      tracked_secondary_kills[event.target:getName()] = nil
+    end
+  elseif event.id == world.event.S_EVENT_UNIT_LOST then
+    if event.initiator then
+      local tracked_ev = tracked_secondary_kills[event.initiator:getName()]
+      if tracked_ev then
+        if tracked_ev.triggerTime + 70 > timer.getTime() then
+          local un = Unit.getByName(tracked_ev.init)
+          if un then
+            tracked_ev.initiator = un
+            tracked_ev.splashdamage = true
+            world.onEvent(tracked_ev)
+          end
+        end
+        
+        tracked_secondary_kills[event.initiator:getName()] = nil
+      end
+    end 
   end
 
 end
@@ -381,7 +406,7 @@ function modelUnitDamage(units)
 end
  
  
-function blastWave(_point, _radius, weapon, power)
+function blastWave(_point, _radius, weapon, power, initiator)
   local foundUnits = {}
   local volS = {
    id = world.VolumeType.SPHERE,
@@ -391,7 +416,7 @@ function blastWave(_point, _radius, weapon, power)
    }
   }
  
-  local ifFound = function(foundObject, val)
+  local ifFound = function(foundObject, fakedEvent)
     if foundObject:getDesc().category == Unit.Category.GROUND_UNIT and foundObject:getCategory() == Object.Category.UNIT then
       foundUnits[#foundUnits + 1] = foundObject
     end
@@ -430,6 +455,9 @@ function blastWave(_point, _radius, weapon, power)
               --debugMsg("static obj :"..obj:getTypeName())
             end
             if explosion_size > power then explosion_size = power end --secondary explosions should not be larger than the explosion that created it
+            fakedEvent.target = obj
+            fakedEvent.triggerTime = timer.getTime() + timing
+            tracked_secondary_kills[obj:getName()] = fakedEvent
             local id = timer.scheduleFunction(explodeObject, {obj_location, distance, explosion_size}, timer.getTime() + timing)  --create the explosion on the object location
           end
 
@@ -443,11 +471,21 @@ function blastWave(_point, _radius, weapon, power)
     
   return true
   end
- 
-  world.searchObjects(Object.Category.UNIT, volS, ifFound)
-  world.searchObjects(Object.Category.STATIC, volS, ifFound)
-  world.searchObjects(Object.Category.SCENERY, volS, ifFound)
-  world.searchObjects(Object.Category.CARGO, volS, ifFound)
+
+  local fakedEvent = {
+    id = 28, 
+    init = initiator, 
+    weapon = { 
+      desc = weapon,
+      getDesc = function(self)
+        return self.desc
+      end
+      }
+  }
+  world.searchObjects(Object.Category.UNIT, volS, ifFound, fakedEvent)
+  world.searchObjects(Object.Category.STATIC, volS, ifFound, fakedEvent)
+  world.searchObjects(Object.Category.SCENERY, volS, ifFound, fakedEvent)
+  world.searchObjects(Object.Category.CARGO, volS, ifFound, fakedEvent)
   --world.searchObjects(Object.Category.BASE, volS, ifFound)
  
   if splash_damage_options.damage_model == true then 
