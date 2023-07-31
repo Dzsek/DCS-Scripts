@@ -57,6 +57,7 @@ splash_damage_options = {
   ["debug"] = false,  --enable debugging messages
   ["weapon_missing_message"] = false, --false disables messages alerting you to weapons missing from the explTable
   ["rocket_multiplier"] = 1.3, --multiplied by the explTable value for rockets
+  ["kill_events"] = true, --simulate dcs kill events for kills done by secondary explosions, initiator: unit that launched the weapon, target: unit that died within 70 seconds of explosion, weapon: weapon that caused the original explosion (only getDesc() is accessible)
 }
 
 local script_enable = 1
@@ -457,7 +458,9 @@ function blastWave(_point, _radius, weapon, power, initiator)
             if explosion_size > power then explosion_size = power end --secondary explosions should not be larger than the explosion that created it
             fakedEvent.target = obj
             fakedEvent.triggerTime = timer.getTime() + timing
-            tracked_secondary_kills[obj:getName()] = fakedEvent
+            if splash_damage_options.kill_events then 
+              tracked_secondary_kills[obj:getName()] = fakedEvent
+            end
             local id = timer.scheduleFunction(explodeObject, {obj_location, distance, explosion_size}, timer.getTime() + timing)  --create the explosion on the object location
           end
 
