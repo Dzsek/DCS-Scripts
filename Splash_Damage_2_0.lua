@@ -38,6 +38,10 @@ spencershepard (GRIMM):
  31 July 2023
  Dzsek (Dzsekeb):
  - generate fake kill event on splash damage kill, attributed to original Unit
+
+ 2 August 2023
+ Dzsek (Dzsekeb):
+ - fake the weapon object in the kill event entirely to improve compatibility with scripts
 --]]
 
 ----[[ ##### SCRIPT CONFIGURATION ##### ]]----
@@ -405,7 +409,83 @@ function modelUnitDamage(units)
     end
   end
 end
- 
+
+FakeWeapon = {}
+do
+  function FakeWeapon:new(weaponDesc)
+    local obj = { 
+      desc = weaponDesc
+    }
+
+    setmetatable(obj, self)
+    self.__index = self
+    return obj
+  end
+
+  function FakeWeapon:getDesc()
+    return self.desc
+  end
+
+  function FakeWeapon:isExist()
+    return false
+  end
+
+  function FakeWeapon:destroy()
+  end
+
+  function FakeWeapon:getCategory()
+    return Object.Category.WEAPON
+  end
+
+  function FakeWeapon:getTypeName()
+    return ""
+  end
+
+  function FakeWeapon:hasAttribute()
+    return false
+  end
+
+  function FakeWeapon:getName()
+    return ""
+  end
+
+  function FakeWeapon:getPoint()
+    return {x=0,y=0,z=0}
+  end
+
+  function FakeWeapon:getPosition()
+    return {
+      p = self:getPoint(),
+      x = 0,
+      y = 0,
+      z = 0
+    }
+  end
+
+  function FakeWeapon:getVelocity()
+    return {x=0,y=0,z=0}
+  end
+
+  function FakeWeapon:inAir()
+    return true
+  end
+
+  function FakeWeapon:getCoalition()
+    return 0
+  end
+
+  function FakeWeapon:getCountry()
+    return 0
+  end
+
+  function FakeWeapon:getLauncher()
+    return nil
+  end
+
+  function FakeWeapon:getTarget()
+    return nil
+  end
+end
  
 function blastWave(_point, _radius, weapon, power, initiator)
   local foundUnits = {}
@@ -478,12 +558,7 @@ function blastWave(_point, _radius, weapon, power, initiator)
   local fakedEvent = {
     id = 28, 
     init = initiator, 
-    weapon = { 
-      desc = weapon,
-      getDesc = function(self)
-        return self.desc
-      end
-      }
+    weapon = FakeWeapon:new(weapon)
   }
   world.searchObjects(Object.Category.UNIT, volS, ifFound, fakedEvent)
   world.searchObjects(Object.Category.STATIC, volS, ifFound, fakedEvent)
