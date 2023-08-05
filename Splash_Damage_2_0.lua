@@ -410,6 +410,156 @@ function modelUnitDamage(units)
   end
 end
 
+FakeUnit = {}
+do
+  function FakeUnit:new(original)
+    local obj = { 
+      desc = original:getDesc(),
+      name = original:getName(),
+      pos = original:getPosition(),
+      side = original:getCoalition(),
+      country = original:getCountry(),
+      original = original,
+      playerName = original:getPlayerName(),
+      id = original:getID(),
+      number = original:getNumber(),
+      objectID = original:getObjectID(),
+      callsign = original:getCallsign()
+    }
+
+    setmetatable(obj, self)
+    self.__index = self
+    return obj
+  end
+
+  function FakeUnit:isActive()
+    return false
+  end
+
+  function FakeUnit:getPlayerName()
+    return self.playerName
+  end
+
+  function FakeUnit:getID()
+    return self.id
+  end
+
+  function FakeUnit:getNumber()
+    return self.number
+  end
+
+  function FakeUnit:getObjectID()
+    return self.objectID
+  end
+
+  function FakeUnit:getController()
+    return nil
+  end
+
+  function FakeUnit:getGroup()
+    return nil
+  end
+
+  function FakeUnit:getCallsign()
+    return self.callsign
+  end
+
+  function FakeUnit:getLife()
+    return 0
+  end
+
+  function FakeUnit:getLife0()
+    return 0
+  end
+
+  function FakeUnit:getFuel()
+    return 0
+  end
+
+  function FakeUnit:getAmmo()
+    return nil
+  end
+
+  function FakeUnit:getSensors()
+    return nil
+  end
+
+  function FakeUnit:hasSensors()
+    return false
+  end
+
+  function FakeUnit:getRadar()
+    return nil
+  end
+
+  function FakeUnit:getDrawArgumentValue()
+    return 0
+  end
+
+  function FakeUnit:getNearestCargos()
+    return nil
+  end
+
+  function FakeUnit:enableEmission()
+    return nil
+  end
+
+  function FakeUnit:getDescentCapacity()
+    return 0
+  end
+ 
+  function FakeUnit:getDesc()
+    return self.desc
+  end
+
+  function FakeUnit:isExist()
+    return self.original:IsExist()
+  end
+
+  function FakeUnit:destroy()
+  end
+
+  function FakeUnit:getCategory()
+    return Object.Category.UNIT
+  end
+
+  function FakeUnit:getTypeName()
+    return self.desc.typeName
+  end
+
+  function FakeUnit:hasAttribute(attr)
+    return self.desc.attributes[attr]
+  end
+
+  function FakeUnit:getName()
+    return self.name
+  end
+
+  function FakeUnit:getPoint()
+    return self.pos.p
+  end
+
+  function FakeUnit:getPosition()
+    return self.pos
+  end
+
+  function FakeUnit:getVelocity()
+    return {x=0,y=0,z=0}
+  end
+
+  function FakeUnit:inAir()
+    return false
+  end
+
+  function FakeUnit:getCoalition()
+    return self.side
+  end
+
+  function FakeUnit:getCountry()
+    return self.country
+  end
+end
+
 FakeWeapon = {}
 do
   function FakeWeapon:new(weaponDesc)
@@ -536,7 +686,7 @@ function blastWave(_point, _radius, weapon, power, initiator)
               --debugMsg("static obj :"..obj:getTypeName())
             end
             if explosion_size > power then explosion_size = power end --secondary explosions should not be larger than the explosion that created it
-            fakedEvent.target = obj
+            fakedEvent.target = FakeUnit:new(obj)
             fakedEvent.triggerTime = timer.getTime() + timing
             if splash_damage_options.kill_events then 
               tracked_secondary_kills[obj:getName()] = fakedEvent
